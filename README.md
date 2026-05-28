@@ -1,4 +1,4 @@
-# VedaAI – AI Assessment Creator
+# QuestAI – AI Assessment Creator
 
 > Full-stack AI-powered question paper generator built for the VedaAI hiring assignment.
 
@@ -253,6 +253,4 @@ vedaai/
 - **Zustand over Redux** — simpler boilerplate for this scale, devtools support included
 - **jsPDF over html2canvas** — true PDF generation with proper A4 formatting, not HTML screenshot
 
----
 
-Built with ❤️ for VedaAI Hiring Assignment
