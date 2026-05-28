@@ -1,256 +1,296 @@
-# QuestAI – AI Assessment Creator
+# QuestAI — AI-Powered Assessment Platform
 
-> Full-stack AI-powered question paper generator built for the VedaAI hiring assignment.
-
-[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://typescriptlang.org)
-[![Node.js](https://img.shields.io/badge/Node.js-20-green)](https://nodejs.org)
+> **QuestAI** is a full-stack AI assessment platform for schools. It enables school admins, teachers, and students to manage, generate, and attempt AI-generated question papers — all from a single unified web application.
 
 ---
 
-## Live Demo
+## 📸 Overview
 
-- **Frontend**: [Deployed Link]
-- **Backend API**: [API URL]
-- **GitHub**: [Repository URL]
+| Portal | Role | Key Features |
+|---|---|---|
+| 🏫 School Admin | School | Dashboard, teacher/student management, reports, leaderboard |
+| 👩‍🏫 Teacher | Teacher | Create AI assignments, track submissions, view insights |
+| 🎓 Student | Student | Attempt assigned tests, view results |
 
 ---
 
-## Architecture Overview
+## 🚀 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Framework** | [Next.js 16](https://nextjs.org) (App Router, Turbopack) |
+| **Language** | TypeScript 5 |
+| **Styling** | Vanilla CSS (custom design system in `globals.css`) |
+| **State** | [Zustand 5](https://zustand-demo.pmnd.rs/) with `persist` middleware |
+| **HTTP Client** | [Axios](https://axios-http.com/) |
+| **PDF Export** | [jsPDF 4](https://github.com/parallax/jsPDF) |
+| **Form Utils** | React Hook Form + Zod |
+| **Date Utils** | date-fns |
+| **Auth** | localStorage-based demo auth (no external provider) |
+| **Deployment** | [Vercel](https://vercel.com) |
+
+---
+
+## 📁 Project Structure
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         CLIENT                              │
-│  Next.js 15 + TypeScript + Zustand + WebSocket              │
-└────────────────────┬────────────────────┬───────────────────┘
-                     │ HTTP/REST           │ WebSocket
-┌────────────────────▼────────────────────▼───────────────────┐
-│                    EXPRESS SERVER (Node.js)                  │
-│  REST API + WebSocket Server + Internal Notification API    │
-└────────────────┬───────────────────────────────────────────┘
-                 │
-       ┌─────────┴─────────┐
-       │                   │
-┌──────▼──────┐   ┌────────▼────────┐
-│   MongoDB   │   │   Redis + BullMQ│
-│  (storage)  │   │  (queue/cache)  │
-└─────────────┘   └────────┬────────┘
-                           │
-                  ┌────────▼────────┐
-                  │   BullMQ Worker │
-                  │  (background)   │
-                  └────────┬────────┘
-                           │
-                  ┌────────▼────────┐
-                  │  Anthropic API  │
-                  │  (Claude AI)    │
-                  └─────────────────┘
+frontend/
+├── public/                     # Static assets
+├── src/
+│   ├── app/                    # Next.js App Router pages
+│   │   ├── layout.tsx          # Root layout (fonts, metadata)
+│   │   ├── page.tsx            # Root redirect (→ /login or dashboard)
+│   │   ├── globals.css         # Full design system & all component styles
+│   │   │
+│   │   ├── login/              # /login  — unified login page (all roles)
+│   │   ├── signup/             # /signup — unified registration page
+│   │   │
+│   │   ├── (school)/           # Route group: School Admin portal
+│   │   │   └── school/
+│   │   │       ├── page.tsx          # /school       — School dashboard
+│   │   │       ├── teachers/         # /school/teachers
+│   │   │       ├── students/         # /school/students
+│   │   │       ├── reports/          # /school/reports
+│   │   │       └── leaderboard/      # /school/leaderboard
+│   │   │
+│   │   ├── (teacher)/          # Route group: Teacher portal
+│   │   │   └── teacher/
+│   │   │       ├── page.tsx          # /teacher      — Assignment list
+│   │   │       ├── new/              # /teacher/new  — Create assignment
+│   │   │       ├── [id]/             # /teacher/[id] — View assignment + paper
+│   │   │       └── insights/[id]/    # /teacher/insights/[id] — Submission stats
+│   │   │
+│   │   ├── (student)/          # Route group: Student portal
+│   │   │   └── student/
+│   │   │       ├── page.tsx          # /student      — My tests list
+│   │   │       └── attempt/[id]/     # /student/attempt/[id] — Take a test
+│   │   │
+│   │   └── assignments/        # Legacy assignment routes (teacher flow)
+│   │
+│   ├── components/             # Shared UI components
+│   │   ├── AppShell.tsx        # Sidebar + header layout shell (teacher)
+│   │   ├── PortalShell.tsx     # Role-aware sidebar layout (school/student)
+│   │   ├── AuthGuard.tsx       # Redirect-if-not-authenticated HOC
+│   │   ├── Logo.tsx            # QuestAI logo (SVG + wordmark)
+│   │   ├── icons.tsx           # All SVG icon components
+│   │   └── auth/
+│   │       └── AuthLayout.tsx  # Dark animated login/signup layout + RoleTabs
+│   │
+│   ├── store/                  # Zustand global state
+│   │   ├── authStore.ts        # Auth state, login/signup/logout, localStorage
+│   │   ├── assignmentStore.ts  # Assignments CRUD (calls backend API)
+│   │   └── submissionStore.ts  # Submissions fetch/submit (calls backend API)
+│   │
+│   ├── lib/
+│   │   ├── pdfExport.ts        # jsPDF-based question paper PDF generator
+│   │   └── rolePaths.ts        # Maps UserRole → home route
+│   │
+│   └── types/                  # Shared TypeScript interfaces
+│
+├── next.config.ts              # Next.js production config (Vercel-ready)
+├── vercel.json                 # Vercel deployment configuration
+├── package.json                # Dependencies & scripts
+├── tsconfig.json               # TypeScript config
+└── .env.example                # Environment variable template
 ```
 
-### Request Flow
+---
 
-1. Teacher fills the assignment creation form (3-step wizard)
-2. Frontend sends POST `/api/assignments` → backend validates & saves to MongoDB
-3. Job added to **BullMQ queue** (backed by Redis)
-4. Response immediately returns `assignmentId` — frontend navigates to progress page
-5. **BullMQ Worker** (separate process) picks up job, calls Anthropic API
-6. Worker sends progress notifications via HTTP to main server
-7. Main server broadcasts via **WebSocket** to subscribed frontend clients
-8. Frontend shows real-time progress bar (10% → 40% → 80% → 100%)
-9. On completion, result stored in MongoDB; frontend fetches and renders the paper
-10. Teacher can download as **PDF** or **Regenerate**
+## 🔐 Authentication & Roles
+
+QuestAI uses **client-side localStorage auth** for the demo. No external auth provider is required.
+
+### Demo Accounts (password: `demo123`)
+
+| Role | Email |
+|---|---|
+| 🏫 School Admin | `school@dpsbokaro.edu` |
+| 👩‍🏫 Teacher | `teacher@dpsbokaro.edu` |
+| 🎓 Student | `student@dpsbokaro.edu` |
+
+### How Auth Works
+- User credentials are stored in `localStorage` under key `questai_users`
+- Session is persisted in `localStorage` under key `questai-auth` via Zustand persist
+- `AuthGuard` component redirects unauthenticated users to `/login`
+- Role-based routing: each role has its own portal (`/school`, `/teacher`, `/student`)
 
 ---
 
-## Tech Stack
+## 🎨 Design System
 
-### Frontend
-| Tech | Purpose |
-|------|---------|
-| Next.js 15 (App Router) | Framework |
-| TypeScript | Type safety |
-| Zustand | State management |
-| WebSocket (native) | Real-time updates |
-| jsPDF | PDF export |
-| date-fns | Date formatting |
-| Tailwind CSS + CSS Variables | Styling |
+All styles live in a single **`src/app/globals.css`** file with:
 
-### Backend
-| Tech | Purpose |
-|------|---------|
-| Node.js + Express | HTTP server |
-| TypeScript | Type safety |
-| MongoDB + Mongoose | Persistent storage |
-| Redis (ioredis) | Cache + job state |
-| BullMQ | Background job queue |
-| ws | WebSocket server |
-| multer | File upload handling |
-
-### AI
-| Tech | Purpose |
-|------|---------|
-| Anthropic Claude (claude-sonnet-4) | Question generation |
-| Structured prompt engineering | Reliable JSON output |
-| Validation layer | Parse & verify AI response |
+- **Dark animated auth pages** — floating orbs, dot-grid overlay, glassmorphism card
+- **Light dashboard** — clean white sidebar + gray content area
+- **CSS custom properties** — `--orange`, `--bg-page`, `--border`, `--radius`, etc.
+- **Responsive** — mobile bottom nav + collapsible sidebar via CSS media queries
+- **Micro-animations** — card entrance (`auth-card-in`), orb float, shimmer button
 
 ---
 
-## Features
+## ⚙️ Environment Variables
 
-### Core
-- ✅ 3-step assignment creation wizard with validation
-- ✅ File upload (PDF/text) as reference material
-- ✅ 5 question types: MCQ, Short, Long, True/False, Fill in Blanks
-- ✅ Difficulty levels: Easy, Medium, Hard, Mixed
-- ✅ Real-time generation progress via WebSocket
-- ✅ Structured question paper with sections (A, B, C…)
-- ✅ Difficulty badges (Easy/Medium/Hard) on each question
-- ✅ Student info section (Name, Roll No, Section)
-- ✅ Regenerate functionality
-- ✅ Delete assignments
+Create a `.env.local` file in the `frontend/` directory:
 
-### Bonus
-- ✅ **PDF Export** — properly formatted, not HTML print
-- ✅ Redis caching for assignments (TTL-based)
-- ✅ BullMQ job retry with exponential backoff
-- ✅ WebSocket reconnection with auto-retry
-- ✅ Polling fallback when WebSocket unavailable
-- ✅ Dark theme UI with animations
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5001
+```
+
+| Variable | Description | Default |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | Backend REST API base URL | `http://localhost:5001` |
+
+> **Note:** Auth, role tabs, and the UI work fully without a backend. Only assignment creation and submission fetching require the backend.
 
 ---
 
-## Setup Instructions
+## 🖥️ Running Locally
 
 ### Prerequisites
-- Node.js 18+
-- MongoDB (local or Atlas)
-- Redis (local or Upstash)
-- Anthropic API key
 
-### Option 1: Docker Compose (Recommended)
+- **Node.js** ≥ 18
+- **npm** ≥ 9
+
+### Steps
 
 ```bash
-git clone <repo-url>
-cd vedaai
+# 1. Clone the repository
+git clone https://github.com/your-username/questai.git
+cd questai/frontend
 
-# Set your API key
-echo "ANTHROPIC_API_KEY=your_key_here" > .env
-
-# Start everything
-docker compose up
-```
-
-App available at http://localhost:3000
-
-### Option 2: Manual Setup
-
-**Backend**
-```bash
-cd backend
-cp .env.example .env
-# Edit .env and set your ANTHROPIC_API_KEY, MONGODB_URI, REDIS_URL
-
+# 2. Install dependencies
 npm install
-npm run dev        # Start API server (port 5001; macOS often uses 5000 for AirPlay)
-npm run worker     # Start BullMQ worker (separate terminal)
-```
 
-**Frontend**
-```bash
-cd frontend
+# 3. Set up environment variables
 cp .env.example .env.local
-# Edit if needed (defaults point to http://localhost:5001)
+# Edit .env.local and set NEXT_PUBLIC_API_URL if you have a backend
 
-npm install
-npm run dev        # Start Next.js (port 3000)
+# 4. Start the development server
+npm run dev
 ```
 
-**Infrastructure (MongoDB + Redis)**
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Available Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start development server with Turbopack |
+| `npm run build` | Build optimised production bundle |
+| `npm run start` | Serve the production build |
+| `npm run lint` | Run ESLint |
+
+---
+
+## 🌐 Deploying to Vercel
+
+### Option 1 — Vercel CLI (recommended)
+
 ```bash
-# From project root — requires Docker Desktop running
-docker compose up -d mongodb redis
+# From the frontend/ directory
+npx vercel login          # Authenticate with your Vercel account (browser)
+npx vercel --prod --yes   # Deploy to production
 ```
+
+When prompted:
+- **Project name:** `questai`
+- **Root directory:** `./` (press Enter)
+- Vercel auto-detects Next.js — no extra config needed
+
+### Option 2 — Vercel Dashboard (Git integration)
+
+1. Push your repo to GitHub
+2. Go to [vercel.com/new](https://vercel.com/new)
+3. Import your GitHub repository
+4. Set **Root Directory** to `frontend`
+5. Add environment variable: `NEXT_PUBLIC_API_URL` → your backend URL
+6. Click **Deploy**
+
+### Environment Variables on Vercel
+
+In your Vercel project → **Settings → Environment Variables**:
+
+| Name | Value |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | `https://your-backend.railway.app` (or leave blank for demo mode) |
 
 ---
 
-## API Reference
+## 🗺️ Pages & Routes Reference
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | Health check |
-| `GET` | `/api/assignments` | List all assignments |
-| `POST` | `/api/assignments` | Create + enqueue generation |
-| `GET` | `/api/assignments/:id` | Get assignment with paper |
-| `POST` | `/api/assignments/:id/regenerate` | Regenerate paper |
-| `DELETE` | `/api/assignments/:id` | Delete assignment |
-
-### WebSocket
-Connect to `ws://localhost:5001/ws`, then subscribe:
-```json
-{ "type": "subscribe", "assignmentId": "..." }
-```
-
-Receive events: `status_update`, `progress`, `completed`, `failed`
-
----
-
-## Prompt Engineering Approach
-
-The AI generation uses a carefully structured prompt that:
-
-1. **Specifies exact JSON schema** — eliminates ambiguity in output format
-2. **Enforces constraints** — exact question count, mark distribution, section structure
-3. **Uses strong instructions** — "Respond ONLY with valid JSON, no markdown"
-4. **Validates output** — server-side validation layer rejects malformed responses
-5. **Falls back gracefully** — retries on failure via BullMQ job retry
+| Route | Component | Description |
+|---|---|---|
+| `/` | `page.tsx` | Auto-redirects based on auth state |
+| `/login` | `login/page.tsx` | Unified login (School / Teacher / Student tabs) |
+| `/signup` | `signup/page.tsx` | Role-based registration |
+| `/school` | `(school)/school/page.tsx` | School admin dashboard with stats |
+| `/school/teachers` | School Teachers | List of all teachers in the school |
+| `/school/students` | School Students | List of all students in the school |
+| `/school/reports` | School Reports | Assignment & test reports |
+| `/school/leaderboard` | Leaderboard | Student ranking by score |
+| `/teacher` | `(teacher)/teacher/page.tsx` | Teacher's assignment list |
+| `/teacher/new` | Teacher New | AI assignment creation wizard |
+| `/teacher/[id]` | Teacher Detail | View generated paper, export PDF |
+| `/teacher/insights/[id]` | Insights | Per-assignment submission analytics |
+| `/student` | `(student)/student/page.tsx` | Student's test list |
+| `/student/attempt/[id]` | Attempt | Take a test, submit answers |
 
 ---
 
-## Project Structure
+## 🧩 Key Components
 
-```
-vedaai/
-├── backend/
-│   ├── src/
-│   │   ├── index.ts           # Express server + WebSocket
-│   │   ├── worker.ts          # BullMQ worker process
-│   │   ├── models/
-│   │   │   └── Assignment.ts  # MongoDB schema
-│   │   ├── routes/
-│   │   │   └── assignments.ts # REST endpoints
-│   │   └── services/
-│   │       ├── aiGenerator.ts # Anthropic API + prompt
-│   │       ├── queue.ts       # BullMQ queue setup
-│   │       ├── redis.ts       # Redis connection + cache
-│   │       └── websocket.ts   # WS manager
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── page.tsx                    # Dashboard
-│   │   │   ├── assignments/new/page.tsx    # Creation wizard
-│   │   │   └── assignments/[id]/page.tsx  # Paper viewer
-│   │   ├── store/
-│   │   │   └── assignmentStore.ts  # Zustand store
-│   │   ├── hooks/
-│   │   │   └── useWebSocket.ts     # WS hook
-│   │   ├── lib/
-│   │   │   └── pdfExport.ts        # jsPDF export
-│   │   └── types/
-│   │       └── index.ts            # TypeScript types
-│   └── package.json
-└── docker-compose.yml
-```
+| Component | Path | Purpose |
+|---|---|---|
+| `AuthLayout` | `components/auth/AuthLayout.tsx` | Dark animated split-screen for login/signup |
+| `RoleTabs` | (same file) | School / Teacher / Student tab switcher |
+| `PortalShell` | `components/PortalShell.tsx` | Role-aware sidebar + header for all portals |
+| `AppShell` | `components/AppShell.tsx` | Teacher-specific app shell with full nav |
+| `AuthGuard` | `components/AuthGuard.tsx` | Wraps protected pages, redirects if unauth |
+| `Logo` | `components/Logo.tsx` | SVG flame logo + "QuestAI" wordmark |
 
 ---
 
-## Design Decisions
+## 📦 Dependencies
 
-- **Separate worker process** — prevents generation blocking the API server
-- **BullMQ over raw Redis queues** — built-in retries, progress tracking, dead-letter
-- **WebSocket + HTTP polling fallback** — handles environments without WS support
-- **Structured AI prompting** — avoids raw LLM output being rendered to users
-- **Zustand over Redux** — simpler boilerplate for this scale, devtools support included
-- **jsPDF over html2canvas** — true PDF generation with proper A4 formatting, not HTML screenshot
+### Production
 
+| Package | Version | Use |
+|---|---|---|
+| `next` | 16.2.6 | Framework |
+| `react` / `react-dom` | 19.x | UI |
+| `zustand` | 5.x | Global state management |
+| `axios` | 1.x | HTTP requests to backend |
+| `jspdf` | 4.x | PDF question paper export |
+| `date-fns` | 4.x | Date formatting |
+| `react-hook-form` | 7.x | Form state management |
+| `zod` | 4.x | Schema validation |
 
+### Development
+
+| Package | Use |
+|---|---|
+| `typescript` | Type checking |
+| `tailwindcss` | (Available but using vanilla CSS) |
+| `eslint` + `eslint-config-next` | Linting |
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repo
+2. Create a feature branch: `git checkout -b feat/my-feature`
+3. Commit your changes: `git commit -m "feat: add my feature"`
+4. Push to the branch: `git push origin feat/my-feature`
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+MIT © QuestAI Team
+
+---
+
+<div align="center">
+  <strong>Built with ❤️ using Next.js + Zustand + Vanilla CSS</strong>
+</div>
