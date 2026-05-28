@@ -14,7 +14,9 @@
     },
     "backend": {
       "root": "backend",
-      "routePrefix": "/_/backend"
+      "routePrefix": "/_/backend",
+      "framework": "nodejs",
+      "entrypoint": "dist/index.js"
     }
   }
 }
