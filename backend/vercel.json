@@ -5,16 +5,5 @@
   "outputDirectory": "dist",
   "env": {
     "NODE_ENV": "production"
-  },
-  "functions": {
-    "src/index.ts": {
-      "runtime": "nodejs20.x"
-    }
-  },
-  "routes": [
-    {
-      "src": "/.*",
-      "dest": "src/index.ts"
-    }
-  ]
+  }
 }
